@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/MemoryMaster">
+        <file>res/qss/darkstyle.qss</file>
+        <file>res/icons/close.png</file>
+        <file>res/icons/maximize.png</file>
+        <file>res/icons/minimize.png</file>
+        <file>res/icons/backstage.png</file>
+        <file>res/icons/MemoryMaster.png</file>
+        <file>res/icons/MemoryMaster.ico</file>
+    </qresource>
+</RCC>
