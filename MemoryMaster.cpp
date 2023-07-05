@@ -7,12 +7,11 @@
 #define MARGIN 10//四个角的长度  
 
 MemoryMaster::MemoryMaster(QWidget *parent) :
-    QMainWindow(parent),
     m_tableModel(new QStandardItemModel),
-    curPos(0),
-    m_areaMovable(geometry()),
-    isLeftPressed(false),
-    m_isMaximize(false)
+    m_isLeftPressed(false),
+    m_isMaximize(false),
+    QMainWindow(parent),
+    m_curPos(0)
 {
     ui.setupUi(this);
 
@@ -118,11 +117,10 @@ void MemoryMaster::mousePressEvent(QMouseEvent* event)
     //鼠标左键
     if (event->button() == Qt::LeftButton)
     {
-        m_ptPress = event->pos();
-        pLast = event->globalPos();
-        qDebug() << pos() << event->pos() << m_ptPress;
-        isLeftPressed = true;
-        curPos = countFlag(event->pos(), countRow(event->pos()));
+        m_pressPoint = event->pos();
+        m_lastPressPoint = event->globalPos();
+        m_isLeftPressed = true;
+        m_curPos = countFlag(event->pos(), countRow(event->pos()));
     }
 }
 
@@ -130,12 +128,12 @@ void MemoryMaster::mouseMoveEvent(QMouseEvent* event)
 {
     int poss = countFlag(event->pos(), countRow(event->pos()));
     setCursorType(poss);
-    if (isLeftPressed)
+    if (m_isLeftPressed)
     {
         QPoint ptemp = event->globalPos();
-        ptemp = ptemp - pLast;
+        ptemp = ptemp - m_lastPressPoint;
 
-        if (curPos == 22)//移动窗口  
+        if (m_curPos == 22)//移动窗口  
         {
             ptemp = ptemp + pos();
             move(ptemp);
@@ -144,7 +142,7 @@ void MemoryMaster::mouseMoveEvent(QMouseEvent* event)
         {
             QRect wid = geometry();
 
-            switch (curPos)//改变窗口的大小  
+            switch (m_curPos)//改变窗口的大小  
             {
             case 11:wid.setTopLeft(wid.topLeft() + ptemp); break;//左上角  
             case 13:wid.setTopRight(wid.topRight() + ptemp); break;//右上角  
@@ -158,24 +156,30 @@ void MemoryMaster::mouseMoveEvent(QMouseEvent* event)
             setGeometry(wid);
         }
 
-        pLast = event->globalPos();//更新位置  
+        m_lastPressPoint = event->globalPos();//更新位置  
     }
 }
 
 void MemoryMaster::mouseReleaseEvent(QMouseEvent*)
 {
-    isLeftPressed = false;
+    m_isLeftPressed = false;
 }
 
-int MemoryMaster::countFlag(QPoint p, int row)//计算鼠标在哪一列和哪一行  
-{
-    if (p.y() < MARGIN)
-        return 10 + row;
-    else if (p.y() > this->height() - MARGIN)
-        return 30 + row;
-    else
-        return 20 + row;
-}
+/*
+窗口各个位置的flag值
+以下是一个窗口的示意
+
+|------------------------|
+| 11 |      12      | 13 |
+|------------------------|
+|    |              |    |
+| 21 |      22      | 23 |
+|    |              |    |
+|------------------------|
+| 31 |      32      | 33 |
+|------------------------|
+
+*/
 
 void MemoryMaster::setCursorType(int flag)//根据鼠标所在位置改变鼠标指针形状  
 {
@@ -203,7 +207,25 @@ void MemoryMaster::setCursorType(int flag)//根据鼠标所在位置改变鼠标指针形状
     setCursor(cursor);
 }
 
-int MemoryMaster::countRow(QPoint p)//计算在哪一列  
+/*
+ 以下两个函数，将窗口划分为 3 * 3 大小的部分，具体划分见 setCursorType 解释
+ 每一个区域可以用 列数 * 10 + 行数 来表示
+ 于是以下两个函数分别计算列数和行数，再代入公式计算区域数
+
+ MARGIN表示每个区域的内边界距离外边框多远
+*/
+
+int MemoryMaster::countRow(QPoint p) // 计算在哪一行  
 {
     return (p.x() < MARGIN) ? 1 : (p.x() > (this->width() - MARGIN) ? 3 : 2);
+}
+
+int MemoryMaster::countFlag(QPoint p, int row) // 计算鼠标在哪一列，并和行数一起计算区域数
+{
+    if (p.y() < MARGIN)
+        return 10 + row;
+    else if (p.y() > this->height() - MARGIN)
+        return 30 + row;
+    else
+        return 20 + row;
 }
