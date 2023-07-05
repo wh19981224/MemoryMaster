@@ -120,7 +120,6 @@ void MemoryMaster::mousePressEvent(QMouseEvent* event)
     {
         m_ptPress = event->pos();
         pLast = event->globalPos();
-        qDebug() << pos() << event->pos() << m_ptPress;
         isLeftPressed = true;
         curPos = countFlag(event->pos(), countRow(event->pos()));
     }

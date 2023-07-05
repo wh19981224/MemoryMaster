@@ -1,5 +1,7 @@
 #pragma once
 #include <QObject>
+#include <QMutex>
+#include <QQueue>
 
 enum class SortMode
 {
@@ -41,4 +43,8 @@ private:
 	QString m_path;
 
 	QStringList m_sizeUnit = {"B", "KB", "MB", "GB", "TB" };
+
+	QMutex m_fileInfoMutex;
+	QMutex m_taskQueueMutex;
+	QQueue<QString> m_taskQueue;
 };
