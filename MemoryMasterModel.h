@@ -32,6 +32,7 @@ public slots:
 signals:
 	void unvalidPath();
 	void finishCompute(QStringList, QStringList, QStringList);
+	void sendPrograssBarValue(int);
 
 private:
 	QStringList m_fileNames;

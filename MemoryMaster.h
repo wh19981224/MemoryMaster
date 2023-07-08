@@ -24,6 +24,7 @@ public slots:
     void setWindowMaiximize();
     void setWindowHide();
     void setWindowClose();
+    void setPrograssBarValue(int);
 
 signals:
     void pathChanged(QString);

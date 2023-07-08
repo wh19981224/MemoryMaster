@@ -77,6 +77,7 @@ void MemoryMasterModel::startCompute()
 	m_fileNames.clear();
 	m_fileSizes.clear();
 	m_fileTpyes.clear();
+	emit sendPrograssBarValue(0);
 
 	QtConcurrent::run([=] {
 		if (info.isFile())
@@ -85,6 +86,7 @@ void MemoryMasterModel::startCompute()
 			m_fileSizes.append(computeSize(info.size()));
 			m_fileTpyes.append(info.suffix());
 			emit finishCompute(m_fileNames, m_fileSizes, m_fileTpyes);
+			emit sendPrograssBarValue(100);
 			return;
 		}
 
@@ -103,6 +105,14 @@ void MemoryMasterModel::startCompute()
 			else
 			{
 				m_fileTpyes.append(list[i].suffix());
+			}
+			if (i < list.length() - 1)
+			{
+				emit sendPrograssBarValue(static_cast<int>(1.0 * i / (list.length() - 2) * 100));
+			}
+			else
+			{
+				emit sendPrograssBarValue(100);
 			}
 		}
 		qDebug() << "文件名有：" << m_fileNames;
