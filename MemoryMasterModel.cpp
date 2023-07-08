@@ -14,6 +14,8 @@ SizeRelationship fileNameSort(QString, QString);
 
 qint64 MemoryMasterModel::computeAllFilesAndDirs(QString path)
 {
+	if (m_taskQueue.size() > 1) return 0;
+	
 	QFileInfo info(path);
 
 	qulonglong ret = 0;
@@ -54,16 +56,15 @@ QString MemoryMasterModel::computeSize(qint64 size)
 		}
 		++idx;
 	}
-	qDebug() << "计算所得大小为：" << QString::number(size) + m_sizeUnit[idx];
+	
 	return QString::number(size) + m_sizeUnit[idx];
 }
 
 void MemoryMasterModel::receiveOnePath(QString path)
 {
-	qDebug() << "获取到一个路径：" << path;
 	m_path = path;
 }
-// test path = D:\C++project\MemoryMaster\MemoryMaster.vcxproj
+
 void MemoryMasterModel::startCompute()
 {
 	QFileInfo info(m_path);
@@ -74,27 +75,54 @@ void MemoryMasterModel::startCompute()
 		return;
 	}
 
-	m_fileNames.clear();
-	m_fileSizes.clear();
-	m_fileTpyes.clear();
-	emit sendPrograssBarValue(0);
-
 	QtConcurrent::run([=] {
+		m_taskQueueMutex.lock();
+		m_taskQueue.push_back(m_path);
+		qDebug() << "压入队列：" << m_path;
+		m_taskQueueMutex.unlock();
+
 		if (info.isFile())
 		{
+			m_fileInfoMutex.lock();
+			m_fileNames.clear();
+			m_fileSizes.clear();
+			m_fileTpyes.clear();
+
 			m_fileNames.append(info.fileName());
 			m_fileSizes.append(computeSize(info.size()));
 			m_fileTpyes.append(info.suffix());
 			emit finishCompute(m_fileNames, m_fileSizes, m_fileTpyes);
+
+			m_fileInfoMutex.unlock();
+
+			m_taskQueueMutex.lock();
+			m_taskQueue.pop_front();
+			m_taskQueueMutex.unlock();
 			emit sendPrograssBarValue(100);
 			return;
 		}
 
 		QDir dir(m_path);
 		QFileInfoList list = dir.entryInfoList();
+
+		m_fileInfoMutex.lock();
+		emit sendPrograssBarValue(0);
+		m_fileNames.clear();
+		m_fileSizes.clear();
+		m_fileTpyes.clear();
+
 		for (int i = 0; i < list.length(); i++)
 		{
-			qDebug() << list[i].filePath();
+			if (m_taskQueue.size() > 1)
+			{
+				m_taskQueueMutex.lock();
+				qDebug() << "中断——推出队列：" << m_taskQueue.front();
+				m_taskQueue.pop_front();
+				m_taskQueueMutex.unlock();
+
+				m_fileInfoMutex.unlock();
+				return;
+			}
 			if (list[i].fileName() == "." || list[i].fileName() == "..") continue;
 			m_fileNames.append(list[i].fileName());
 			m_fileSizes.append(computeSize(computeAllFilesAndDirs(list[i].filePath())));
@@ -120,6 +148,13 @@ void MemoryMasterModel::startCompute()
 		qDebug() << "文件大小有：" << m_fileSizes;
 		fileSort(0);
 		emit finishCompute(m_fileNames, m_fileSizes, m_fileTpyes);
+
+		m_taskQueueMutex.lock();
+		qDebug() << "正常结束——推出队列：" << m_taskQueue.front();
+		m_taskQueue.pop_front();
+		m_taskQueueMutex.unlock();
+
+		m_fileInfoMutex.unlock();
 	});
 }
 
