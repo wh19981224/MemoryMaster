@@ -18,9 +18,9 @@ MemoryMaster::MemoryMaster(QWidget *parent) :
 
     ui.memoryMasterIconLabel->setPixmap(QPixmap(":/MemoryMaster/res/icons/MemoryMaster.png").scaled(QSize(20, 20), Qt::KeepAspectRatio));
 
-    ui.closeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/close.png"));
-    ui.resizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/maximize.png"));
-    ui.minimizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/backstage.png"));
+    ui.closeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/window_close_focus@2x.png"));
+    ui.resizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/checkbox_unchecked_focus@2x.png"));
+    ui.minimizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/window_minimize_focus@2x.png"));
 
     ui.closeBtn->setStyleSheet("QPushButton {background-color:red}");
 
@@ -91,13 +91,13 @@ void MemoryMaster::setWindowMaiximize()
 {
     if (m_isMaximize)
     {
-        ui.resizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/maximize.png"));
+        ui.resizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/checkbox_unchecked_focus@2x.png"));
         m_isMaximize = false;
         this->showNormal();
     }
     else
     {
-        ui.resizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/minimize.png"));
+        ui.resizeBtn->setIcon(QIcon(":/MemoryMaster/res/icons/window_undock_focus@2x.png"));
         m_isMaximize = true;
         this->showMaximized();
     }
