@@ -44,13 +44,6 @@
       </property>
      </widget>
     </item>
-    <item row="3" column="0" colspan="2">
-     <widget class="QLabel" name="stateHitLabel">
-      <property name="text">
-       <string>未开始计算</string>
-      </property>
-     </widget>
-    </item>
     <item row="1" column="1">
      <widget class="QLineEdit" name="pathLineEdit">
       <property name="minimumSize">
@@ -198,6 +191,26 @@
     </item>
     <item row="2" column="0" colspan="3">
      <widget class="QTableView" name="memoryTableView"/>
+    </item>
+    <item row="3" column="0">
+     <widget class="QLabel" name="stateHitLabel">
+      <property name="maximumSize">
+       <size>
+        <width>200</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>未开始计算</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1" colspan="2">
+     <widget class="QProgressBar" name="progressBar">
+      <property name="value">
+       <number>0</number>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
