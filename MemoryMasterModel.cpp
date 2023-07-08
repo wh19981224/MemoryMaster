@@ -64,7 +64,7 @@ void MemoryMasterModel::receiveOnePath(QString path)
 {
 	m_path = path;
 }
-// test path = D:\C++project\MemoryMaster\MemoryMaster.vcxproj
+
 void MemoryMasterModel::startCompute()
 {
 	QFileInfo info(m_path);
@@ -92,12 +92,14 @@ void MemoryMasterModel::startCompute()
 			m_fileSizes.append(computeSize(info.size()));
 			m_fileTpyes.append(info.suffix());
 			emit finishCompute(m_fileNames, m_fileSizes, m_fileTpyes);
+
 			m_fileInfoMutex.unlock();
 
 			m_taskQueueMutex.lock();
 			m_taskQueue.pop_front();
 			m_taskQueueMutex.unlock();
 
+			emit sendPrograssBarValue(100);
 			return;
 		}
 
@@ -105,7 +107,7 @@ void MemoryMasterModel::startCompute()
 		QFileInfoList list = dir.entryInfoList();
 
 		m_fileInfoMutex.lock();
-
+		emit sendPrograssBarValue(0);
 		m_fileNames.clear();
 		m_fileSizes.clear();
 		m_fileTpyes.clear();
@@ -132,6 +134,14 @@ void MemoryMasterModel::startCompute()
 			else
 			{
 				m_fileTpyes.append(list[i].suffix());
+			}
+			if (i < list.length() - 1)
+			{
+				emit sendPrograssBarValue(static_cast<int>(1.0 * i / (list.length() - 2) * 100));
+			}
+			else
+			{
+				emit sendPrograssBarValue(100);
 			}
 		}
 		qDebug() << "文件名有：" << m_fileNames;

@@ -112,6 +112,11 @@ void MemoryMaster::setWindowClose()
     this->close();
 }
 
+void MemoryMaster::setPrograssBarValue(int value)
+{
+    ui.progressBar->setValue(value);
+}
+
 void MemoryMaster::mousePressEvent(QMouseEvent* event)
 {
     //ЪѓБъзѓМќ
