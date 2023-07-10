@@ -12,6 +12,15 @@ const QMap<QChar, int> SizeUintMap = { {'K', 0}, {'M', 1}, {'G', 2}, {'T', 3}};
 SizeRelationship fileSizeSort(QString, QString);
 SizeRelationship fileNameSort(QString, QString);
 
+MemoryMasterModel::MemoryMasterModel() : 
+	m_sizeUnit({ "B", "KB", "MB", "GB", "TB" }),
+	m_path(""),
+	m_subNum(0),
+	m_completeNum(0)
+{
+
+}
+
 qint64 MemoryMasterModel::computeAllFilesAndDirs(QString path)
 {
 	if (m_taskQueue.size() > 1) return 0;
@@ -74,11 +83,11 @@ void MemoryMasterModel::startCompute()
 		emit unvalidPath();
 		return;
 	}
-
+	qDebug() << "开始进入线程" << ",主线程id = " << QThread::currentThreadId();
 	QtConcurrent::run([=] {
 		m_taskQueueMutex.lock();
 		m_taskQueue.push_back(m_path);
-		qDebug() << "压入队列：" << m_path;
+		qDebug() << "压入队列：" << m_path << ",thread id = " << QThread::currentThreadId();
 		m_taskQueueMutex.unlock();
 
 		if (info.isFile())
@@ -110,52 +119,99 @@ void MemoryMasterModel::startCompute()
 		m_fileNames.clear();
 		m_fileSizes.clear();
 		m_fileTpyes.clear();
+		qDebug() << "list.count() = " << list.count() << ",list.size() = " << list.size() << ",list.length() = " << list.length();
+		m_completeNum = 0;
+		m_subNum = list.length();
+		for (int i = 0; i < m_threadVector.size(); ++i)
+		{
+			m_threadVector[i]->setExit();
+			m_threadVector[i]->wait();
+			delete m_threadVector[i];
+		}
+		m_threadVector.clear();
+		m_fileInfoMutex.unlock();
 
-		for (int i = 0; i < list.length(); i++)
+		for (int i = 0, len = list.length(); i < len; i++)
 		{
 			if (m_taskQueue.size() > 1)
 			{
 				m_taskQueueMutex.lock();
-				qDebug() << "中断——推出队列：" << m_taskQueue.front();
+				qDebug() << "中断——推出队列：" << m_taskQueue.front() << ",thread id = " << QThread::currentThreadId();
 				m_taskQueue.pop_front();
 				m_taskQueueMutex.unlock();
 
-				m_fileInfoMutex.unlock();
 				return;
 			}
-			if (list[i].fileName() == "." || list[i].fileName() == "..") continue;
-			m_fileNames.append(list[i].fileName());
-			m_fileSizes.append(computeSize(computeAllFilesAndDirs(list[i].filePath())));
+			
+			if (list[i].fileName() == "." || list[i].fileName() == "..")
+			{
+				m_fileInfoMutex.lock();
+				m_subNum--;
+				m_fileInfoMutex.unlock();
+
+				continue;
+			}
+			
 			if (list[i].isDir())
 			{
-				m_fileTpyes.append("文件夹");
+				ComputeDirSize *computeDirSize = new ComputeDirSize(list[i].filePath());
+				connect(computeDirSize, SIGNAL(sendSizeValue(QString, qint64)),
+					    this, SLOT(receiveDirSize(QString, qint64)));
+				m_fileInfoMutex.lock();
+				m_threadVector.append(computeDirSize);
+				m_fileInfoMutex.unlock();
+				computeDirSize->start();
+				continue;
+			}
+
+			m_fileInfoMutex.lock();
+			m_fileNames.append(list[i].fileName());
+			m_fileSizes.append(computeSize(computeAllFilesAndDirs(list[i].filePath())));
+			m_fileTpyes.append(list[i].suffix());
+			m_fileInfoMutex.unlock();
+
+			m_completeNum++;
+			if (m_completeNum < m_subNum)
+			{
+				emit sendPrograssBarValue(static_cast<int>(1.0 * m_completeNum / m_subNum * 100));
+				qDebug() << list[i].fileName() << "计算完成, m_completeNum = " << m_completeNum << ",m_subNum = " << m_subNum;
 			}
 			else
 			{
-				m_fileTpyes.append(list[i].suffix());
-			}
-			if (i < list.length() - 1)
-			{
-				emit sendPrograssBarValue(static_cast<int>(1.0 * i / (list.length() - 2) * 100));
-			}
-			else
-			{
+				completeCompute();
 				emit sendPrograssBarValue(100);
+				qDebug() << list[i].fileName() << "计算完成, m_completeNum = " << m_completeNum << ",m_subNum = " << m_subNum;
 			}
 		}
-		qDebug() << "文件名有：" << m_fileNames;
-		qDebug() << "文件类型有：" << m_fileTpyes;
-		qDebug() << "文件大小有：" << m_fileSizes;
-		fileSort(0);
-		emit finishCompute(m_fileNames, m_fileSizes, m_fileTpyes);
 
 		m_taskQueueMutex.lock();
-		qDebug() << "正常结束——推出队列：" << m_taskQueue.front();
+		qDebug() << "循环结束——推出队列：" << m_taskQueue.front() << ",thread id = " << QThread::currentThreadId();
 		m_taskQueue.pop_front();
 		m_taskQueueMutex.unlock();
-
-		m_fileInfoMutex.unlock();
 	});
+}
+
+void MemoryMasterModel::receiveDirSize(QString dirPath, qint64 dirSize)
+{
+	m_fileInfoMutex.lock();
+	QFileInfo info(dirPath);
+	m_fileNames.append(info.fileName());
+	m_fileSizes.append(computeSize(dirSize));
+	m_fileTpyes.append("文件夹");
+	m_fileInfoMutex.unlock();
+
+	m_completeNum++;
+	if (m_completeNum < m_subNum)
+	{
+		emit sendPrograssBarValue(static_cast<int>(1.0 * m_completeNum / m_subNum * 100));
+		qDebug() << dirPath << "计算完成, m_completeNum = " << m_completeNum << ",m_subNum = " << m_subNum;
+	}
+	else
+	{
+		completeCompute();
+		emit sendPrograssBarValue(100);
+		qDebug() << dirPath << "计算完成, m_completeNum = " << m_completeNum << ",m_subNum = " << m_subNum;
+	}
 }
 
 void MemoryMasterModel::fileSort(int modeNum)
@@ -292,4 +348,79 @@ void MemoryMasterModel::swapAll(int i, int j)
 	tempStr = m_fileTpyes[i];
 	m_fileTpyes[i] = m_fileTpyes[j];
 	m_fileTpyes[j] = tempStr;
+}
+
+void MemoryMasterModel::completeCompute()
+{
+	m_fileInfoMutex.lock();
+	qDebug() << "结束计算线程id = " << QThread::currentThreadId();
+	for (int i = 0; i < m_threadVector.size(); ++i)
+	{
+		// m_threadVector[i]->setExit();
+		// qDebug() << "清除第" << i + 1 << "个线程";
+		m_threadVector[i]->quit();
+		m_threadVector[i]->wait();
+		delete m_threadVector[i];
+	}
+	m_threadVector.clear();
+	m_fileInfoMutex.unlock();
+	
+	qDebug() << "文件名有：" << m_fileNames;
+	qDebug() << "文件类型有：" << m_fileTpyes;
+	qDebug() << "文件大小有：" << m_fileSizes;
+	fileSort(0);
+	emit finishCompute(m_fileNames, m_fileSizes, m_fileTpyes);
+}
+
+/************************* 计算文件夹大小的线程类 ***************************/
+
+ComputeDirSize::ComputeDirSize(QString path) :
+	m_dirPath(path),
+	m_exit(false)
+{
+
+}
+
+qint64 ComputeDirSize::computeAllFilesAndDirs(QString path)
+{
+	if (m_exit) return 0;
+
+	QFileInfo info(path);
+
+	qulonglong ret = 0;
+
+	if (info.isFile())
+	{
+		ret = info.size();
+	}
+	else if (info.isDir())
+	{
+		QDir dir(path);
+
+		QFileInfoList list = dir.entryInfoList();
+
+		for (int i = 0; i < list.length(); i++)
+		{
+			if (list[i].fileName() == "." || list[i].fileName() == "..") continue;
+			ret = ret + computeAllFilesAndDirs(list[i].filePath());
+		}
+	}
+
+	return ret;
+}
+
+void ComputeDirSize::setExit()
+{
+	m_exit = true;
+}
+
+void ComputeDirSize::run()
+{
+	qDebug() << "开始多线程计算文件夹: " << m_dirPath << "的大小， 线程id = " << QThread::currentThreadId();
+	qint64 size = computeAllFilesAndDirs(m_dirPath);
+	if (m_exit == false)
+	{
+		emit sendSizeValue(m_dirPath, size);
+	}
+	qDebug() << "多线程计算文件夹: " << m_dirPath << "的大小完成";
 }
